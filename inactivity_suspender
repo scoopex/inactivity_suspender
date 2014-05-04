@@ -1,0 +1,154 @@
+#!/usr/bin/ruby -w
+
+require 'getoptlong'
+
+activity_timeout_seconds = 600
+bytes_per_second = 40000
+test = false
+mousedevice = "/dev/input/mouse0"
+opslimit = 100
+
+$last_transferred = 0
+$last_epoch =  Time.now.to_f
+
+
+def detectMouseActivity(timeout,mousedevice)
+   file = File.new(mousedevice, "r")
+   # monitor mouse activity
+   rs = IO.select([file],[],[],timeout)
+   file.close
+   if rs == nil
+      puts "   => No mouse activity"
+      return false
+   else
+      puts "   => mouse activity"
+      return true
+   end
+
+end
+
+def detectNetworkActivity(bytes_per_second)
+   # monitor network activity
+   net = File.new("/proc/net/dev", "r")
+   now_transferred = 0
+   while (line = net.gets)
+      if (line =~ /lo:|bytes|Transmit/)
+         next
+      end
+      if line =~ /^\s+(.+):\s+(\d+)(\s+\d+){7}\s+(\d+)/
+         capt = $~.captures
+         now_transferred += Integer(capt[1]) + Integer(capt[3])
+      end
+   end
+   net.close
+   transfered_bytes=now_transferred-$last_transferred
+   $last_transferred = now_transferred
+   transferrate = (transfered_bytes * 8) / (Time.now.to_f - $last_epoch) 
+   $last_epoch =  Time.now.to_f
+
+   if (transferrate < bytes_per_second)
+      printf("   => Not enough network activity (%i bytes/sec)\n", transferrate)
+      return false
+   else
+      printf("   => Enough network activity (%i bytes/sec)\n", transferrate)
+      return true
+   end
+end
+
+
+def getRWDiskOps()
+   ops=0
+   disk = File.new("/proc/diskstats", "r")
+   while (line = disk.gets)
+      if line =~ /^\s*(\d+)\s+(\d+)\s+([a-z0-9]*)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+).*/
+         capt = $~.captures
+         ops = ops + Integer(capt[4-1]) + Integer(capt[8-1])
+      end
+   end
+   disk.close
+   return ops
+end
+
+def detectDiskActivity(perfomed_ops)
+   ops1 = getRWDiskOps()
+   # typical linux filesystem flush time is 3 seconds (ie. ext3)
+   sleep(10)
+   ops2 = getRWDiskOps()
+
+   ops = (ops2 - ops1)
+   if (ops < perfomed_ops)
+      printf("   => Not enough disk activity (%i ops)\n", ops)
+      return false
+   else
+      printf("   => Enough disk activity (%i ops)\n", ops)
+      return true
+   end
+end
+
+def suspendSystem()
+   #suspend_command="qdbus org.freedesktop.PowerManagement  /org/freedesktop/PowerManagement org.freedesktop.PowerManagement.Suspend"
+   suspend_command="echo -n mem > /sys/power/state"
+   puts "EXEC: "+suspend_command
+   system(suspend_command)
+end
+
+####################################################################
+####
+#### MAIN
+
+
+opts = GetoptLong.new(
+        [ '--seconds', GetoptLong::OPTIONAL_ARGUMENT ],
+        [ '--bytes', GetoptLong::OPTIONAL_ARGUMENT ],
+        [ '--test', GetoptLong::OPTIONAL_ARGUMENT ],
+        [ '--mousedevice', GetoptLong::OPTIONAL_ARGUMENT ],
+        [ '--opslimit', GetoptLong::OPTIONAL_ARGUMENT ]
+      )
+
+
+
+
+opts.each do |opt, arg|
+  case opt
+      when '--test'
+            test = true
+      when '--seconds'
+            activity_timeout_seconds = arg.to_i
+      when '--bytes'
+            bytes_per_second = arg.to_i
+      when '--mousedevice'
+            mousedevice = arg
+      when '--opslimit'
+            opslimit = arg
+      end
+end
+
+
+if ARGV.length < 1
+   puts
+   puts "Usage: inactivity_suspender <options>"
+   puts
+   printf("--test                       : do not suspend really, simulate\n")
+   printf("--seconds <seconds>          : check interval (%i)\n",activity_timeout_seconds) 
+   printf("--bytes <bytes per second>   : transferrate in bytes per second (%i)\n",bytes_per_second)
+   printf("--mousedevice <device>       : device node of the mouse device (%s)\n",mousedevice)
+   printf("--opslimit <number>          : added running disk operations found in 10 seconds (%i)\n",opslimit)
+   puts
+end
+
+while true
+   mouse_activity = detectMouseActivity(activity_timeout_seconds,mousedevice)
+   network_activity = detectNetworkActivity(bytes_per_second)
+   disk_activity = detectDiskActivity(opslimit)
+
+   puts
+   if (mouse_activity != true and network_activity != true and disk_activity != true)
+      puts "Woo, time to suspend....there is nothing going on here...."
+      if test != true
+         suspendSystem()
+      end
+   end
+   puts "sleeping.....no need to suspend"
+   sleep(activity_timeout_seconds)
+end
+
