@@ -2,8 +2,8 @@
 
 require 'getoptlong'
 
-activity_timeout_seconds = 600
-bytes_per_second = 40000
+activity_timeout_seconds = 60 * 10 
+bytes_per_second = 25000
 test = false
 mousedevice = "/dev/input/mouse0"
 opslimit = 100
@@ -47,10 +47,10 @@ def detectNetworkActivity(bytes_per_second)
    $last_epoch =  Time.now.to_f
 
    if (transferrate < bytes_per_second)
-      printf("   => Not enough network activity (%i bytes/sec)\n", transferrate)
+      printf("   => Not enough network activity (%i bytes/sec < %i bytes/sec)\n", transferrate, bytes_per_second)
       return false
    else
-      printf("   => Enough network activity (%i bytes/sec)\n", transferrate)
+      printf("   => Enough network activity (%i bytes/sec > %i bytes/sec)\n", transferrate, bytes_per_second)
       return true
    end
 end
@@ -77,10 +77,10 @@ def detectDiskActivity(perfomed_ops)
 
    ops = (ops2 - ops1)
    if (ops < perfomed_ops)
-      printf("   => Not enough disk activity (%i ops)\n", ops)
+      printf("   => Not enough disk activity (%i ops < %i ops)\n", ops, perfomed_ops)
       return false
    else
-      printf("   => Enough disk activity (%i ops)\n", ops)
+      printf("   => Enough disk activity (%i ops > %i ops)\n", ops, perfomed_ops)
       return true
    end
 end
@@ -120,7 +120,7 @@ opts.each do |opt, arg|
             mousedevice = arg
       when '--opslimit'
             opslimit = arg
-      end
+  end
 end
 
 
@@ -129,13 +129,14 @@ if ARGV.length < 1
    puts "Usage: inactivity_suspender <options>"
    puts
    printf("--test                       : do not suspend really, simulate\n")
-   printf("--seconds <seconds>          : check interval (%i)\n",activity_timeout_seconds) 
-   printf("--bytes <bytes per second>   : transferrate in bytes per second (%i)\n",bytes_per_second)
-   printf("--mousedevice <device>       : device node of the mouse device (%s)\n",mousedevice)
-   printf("--opslimit <number>          : added running disk operations found in 10 seconds (%i)\n",opslimit)
+   printf("--seconds <seconds>          : check interval (default %i)\n",activity_timeout_seconds) 
+   printf("--bytes <bytes per second>   : transferrate in bytes per second (default %i)\n",bytes_per_second)
+   printf("--mousedevice <device>       : device node of the mouse device (default %s)\n",mousedevice)
+   printf("--opslimit <number>          : added running disk operations found in 10 seconds (default %i)\n",opslimit)
    puts
 end
 
+puts Time.new.inspect + " ==> Starting up"
 while true
    mouse_activity = detectMouseActivity(activity_timeout_seconds,mousedevice)
    network_activity = detectNetworkActivity(bytes_per_second)
@@ -143,12 +144,12 @@ while true
 
    puts
    if (mouse_activity != true and network_activity != true and disk_activity != true)
-      puts "Woo, time to suspend....there is nothing going on here...."
+      puts Time.new.inspect + " ==> Woo, time to suspend....there is nothing going on here...."
       if test != true
          suspendSystem()
       end
    end
-   puts "sleeping.....no need to suspend"
+   puts Time.new.inspect + " ==> sleeping.....no need to suspend"
    sleep(activity_timeout_seconds)
 end
 
