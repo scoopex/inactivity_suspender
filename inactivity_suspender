@@ -44,7 +44,6 @@ def detectNetworkActivity(bytes_per_second)
    transfered_bytes=now_transferred-$last_transferred
    $last_transferred = now_transferred
    transferrate = (transfered_bytes * 8) / (Time.now.to_f - $last_epoch) 
-   $last_epoch =  Time.now.to_f
 
    if (transferrate < bytes_per_second)
       printf("   => Not enough network activity (%i bytes/sec < %i bytes/sec)\n", transferrate, bytes_per_second)
@@ -89,7 +88,8 @@ def suspendSystem()
    #suspend_command="qdbus org.freedesktop.PowerManagement  /org/freedesktop/PowerManagement org.freedesktop.PowerManagement.Suspend"
    suspend_command="echo -n mem > /sys/power/state"
    puts "EXEC: "+suspend_command
-   system(suspend_command)
+   ret = system(suspend_command)
+   print "SUSPEND RETERUNCODE:" + ret
 end
 
 ####################################################################
@@ -138,6 +138,9 @@ end
 
 puts Time.new.inspect + " ==> Starting up"
 while true
+
+
+   puts "------------------------------------------------------------------------------------------------------"
    mouse_activity = detectMouseActivity(activity_timeout_seconds,mousedevice)
    network_activity = detectNetworkActivity(bytes_per_second)
    disk_activity = detectDiskActivity(opslimit)
@@ -147,8 +150,10 @@ while true
       puts Time.new.inspect + " ==> Woo, time to suspend....there is nothing going on here...."
       if test != true
          suspendSystem()
+         puts "WAKEUP AT: "+Time.new.inspect
       end
    end
+   $last_epoch =  Time.now.to_f
    puts Time.new.inspect + " ==> sleeping.....no need to suspend"
    sleep(activity_timeout_seconds)
 end

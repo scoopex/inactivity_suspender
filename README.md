@@ -44,3 +44,7 @@ git clone git@github.com:scoopex/inactivity_suspender.git
 sudo bash
 screen -x inactivity_suspender
 ```
+
+# TODO
+
+- Change ops to ops/10sec to ops/sec limit
