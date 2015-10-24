@@ -104,9 +104,6 @@ opts = GetoptLong.new(
         [ '--opslimit', GetoptLong::OPTIONAL_ARGUMENT ]
       )
 
-
-
-
 opts.each do |opt, arg|
   case opt
       when '--test'
@@ -153,7 +150,7 @@ while true
       end
    end
    $last_epoch =  Time.now.to_f
-   puts Time.new.inspect + " ==> sleeping.....no need to suspend"
+   puts Time.new.inspect + " ==> No need to suspend, check again in "+activity_timeout_seconds+" seconds"
    sleep(activity_timeout_seconds)
 end
 
