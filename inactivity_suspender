@@ -150,7 +150,7 @@ while true
       end
    end
    $last_epoch =  Time.now.to_f
-   puts Time.new.inspect + " ==> No need to suspend, check again in "+activity_timeout_seconds+" seconds"
+   puts Time.new.inspect + " ==> No need to suspend, check again in "+str(activity_timeout_seconds)+" seconds"
    sleep(activity_timeout_seconds)
 end
 
