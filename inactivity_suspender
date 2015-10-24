@@ -88,8 +88,7 @@ def suspendSystem()
    #suspend_command="qdbus org.freedesktop.PowerManagement  /org/freedesktop/PowerManagement org.freedesktop.PowerManagement.Suspend"
    suspend_command="echo -n mem > /sys/power/state"
    puts "EXEC: "+suspend_command
-   ret = system(suspend_command)
-   print "SUSPEND RETERUNCODE:" + ret
+   system(suspend_command)
 end
 
 ####################################################################
